@@ -2,16 +2,65 @@
 import tensorflow as tf
 
 
+class BloomRegressor:
+  def __init__(self):
+    self.label_square = None
+    self.covariate_label_product = None
+    self.covariate_square = None
+    self.beta_estimator = None
+
+  @classmethod
+  def estimator_fn(cls, x_p, y_p):
+    # Recall beta = np.inv(X.T @ X) * (X.T @ y)
+    yy_p = tf.matmul(y_p, y_p, transpose_a=True)  # per-party y.T @ y
+    xy_p = tf.matmul(x_p, y_p, transpose_a=True)  # per-party X.T @ y
+    xx_p = tf.matmul(x_p, x_p, transpose_a=True)  # per-party X.T @ X
+    n_p = x_p.shape[0]                            # per-party sample size
+    return yy_p, xy_p, xx_p, n_p
+
+  def fit(self,
+          training_players,
+          epochs=1,
+          verbose=0,
+          validation_split=None,
+          batch_size=1):
+    if validation_split is not None:
+      raise NotImplementedError()
+    if epochs != 1 or batch_size != 1:
+      raise ValueError("Invalid arguments for training with normal equations.")
+
+    partial_estimators = [player.compute_estimators(self.estimator_fn)
+                          for player in training_players]
+
+    accumulator = {}
+    keys = ["label_square", "covariate_label_product", "covariate_square"]
+
+    for results_tuple in zip(*partial_estimators)):
+      for i, estimator
+
+
+    if not verbose:
+      return self
+    # TODO: everything below here
+    self._print_training_stats()
+    if verbose > 1:
+      self.print_stderror_estimates()
+      self.print_pvalues()
+
+
 class DataOwner:
   """Contains code meant to be executed by a data owner Player."""
   def __init__(
       self,
       player_name,
-      data_partition,
+      training_set_path,
+      test_set_path,
       batch_size,
   ):
     self.player_name = player_name
     self.num_players = num_players
+    self.training_set_path = training_set_path
+    self.test_set_path = test_set_path
     self.batch_size = batch_size
     self.train_initializer = None
     self.test_initializer = None
@@ -20,7 +69,7 @@ class DataOwner:
   def initializer(self):
     return tf.group(self.train_initializer, self.test_initializer)
 
-  def provide_training_data(self):
+  def _build_training_data(self):
     """Preprocess training dataset
 
     Return single batch of training dataset
@@ -50,7 +99,7 @@ class DataOwner:
 
     return x, y
 
-  def provide_testing_data(self):
+  def _build_testing_data(self):
     """Preprocess testing dataset
 
     Return single batch of testing dataset
@@ -78,7 +127,8 @@ class DataOwner:
 
     return x, y
 
-
-class Collaboration:
-  def __init__(self, dataset, num_players):
-    pass
+  @tfe.local_computation
+  def compute_estimator(self, estimator_fn):
+    x, y = self._build_training_data()
+    partial_beta = estimator_fn(x, y)
+    return partial_beta
