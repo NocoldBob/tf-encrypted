@@ -65,6 +65,8 @@ def default_args_check(arg, arg_name, tf_layer_name):
   """
   tf_layer_cls = getattr(tf.keras.layers, tf_layer_name)
   layer_sign = inspect.signature(tf_layer_cls.__init__).parameters
+  if list(layer_sign.keys()) == ['self', 'args', 'kwargs']:
+    return
   if arg_name not in layer_sign:
     raise UnknownLayerArgError(arg_name, layer_sign, tf_layer_name)
   tf_default_arg = layer_sign[arg_name].default
